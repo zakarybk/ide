@@ -34,11 +34,13 @@ function handleResult(data) {
   timeEnd = performance.now();
   console.log("It took " + (timeEnd - timeStart) + " ms to get submission result.");
 
+  data = data.results[0];
+
   var status = data.status;
   var stdout = decodeURIComponent(escape(atob(data.stdout || "")));
   var stderr = decodeURIComponent(escape(atob(data.stderr || "")));
   var compile_output = decodeURIComponent(escape(atob(data.compile_output || "")));
-  var message = decodeURIComponent(escape(atob(data.message || "")));
+  var internal_message = decodeURIComponent(escape(atob(data.internal_message || "")));
   var time = (data.time === null ? "-" : data.time + "s");
   var memory = (data.memory === null ? "-" : data.memory + "KB");
 
@@ -47,7 +49,7 @@ function handleResult(data) {
   if (status.id == 6) {
     stdout = compile_output;
   } else if (status.id == 13) {
-    stdout = message;
+    stdout = internal_message;
   } else if (status.id != 3 && stderr != "") { // If status is not "Accepted", merge stdout and stderr
     stdout += (stdout == "" ? "" : "\n") + stderr;
   }
@@ -77,38 +79,42 @@ function run() {
   var inputValue = btoa(unescape(encodeURIComponent(inputEditor.getValue())));
   var languageId = $selectLanguageBtn.val();
   var data = {
-    source_code: sourceValue,
+    source: sourceValue,
     language_id: languageId,
-    stdin: inputValue
+    test_cases: [
+      {
+        input: inputValue
+      }
+    ]
   };
 
   timeStart = performance.now();
   $.ajax({
-    url: BASE_URL + `/submissions?base64_encoded=true&wait=${WAIT}`,
+    url: BASE_URL + `/submissions?base64_encoded=true&wait=${WAIT}&fields=*`,
     type: "POST",
     async: true,
     contentType: "application/json",
     data: JSON.stringify(data),
     success: function(data, textStatus, jqXHR) {
-      console.log(`Your submission token is: ${data.token}`);
+      console.log(`Your submission uuid is: ${data.uuid}`);
       if (WAIT == true) {
         handleResult(data);
       } else {
-        setTimeout(fetchSubmission.bind(null, data.token), SUBMISSION_CHECK_TIMEOUT);
+        setTimeout(fetchSubmission.bind(null, data.uuid), SUBMISSION_CHECK_TIMEOUT);
       }
     },
     error: handleRunError
   });
 }
 
-function fetchSubmission(submission_token) {
+function fetchSubmission(submission_uuid) {
   $.ajax({
-    url: BASE_URL + "/submissions/" + submission_token + "?base64_encoded=true",
+    url: BASE_URL + "/submissions/" + submission_uuid + "?base64_encoded=true&fields=*",
     type: "GET",
     async: true,
     success: function(data, textStatus, jqXHR) {
       if (data.status.id <= 2) { // In Queue or Processing
-        setTimeout(fetchSubmission.bind(null, submission_token), SUBMISSION_CHECK_TIMEOUT);
+        setTimeout(fetchSubmission.bind(null, submission_uuid), SUBMISSION_CHECK_TIMEOUT);
         return;
       }
       handleResult(data);
