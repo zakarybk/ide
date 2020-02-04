@@ -187,3 +187,10 @@ body {
 .no-left-padding {
     padding-left: 0;
 }
+
+#compiler-options {
+ visibility: hidden;
+}
+#command-line-arguments {
+ visibility: hidden;
+}
